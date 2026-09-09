@@ -1,0 +1,40 @@
+//	Project: TCQ Network Protocol (Thread Controlled QUIC)
+//	Author: Trần Nguyên Hiền (c)
+//	Major: Electronic And Communication Engineering
+//	Email: trannguyenhien29085@gmail.com
+//	Date: 2/3/2026
+//	Apache License 2.0
+//
+// ----------------------------------------------------------------
+package quic
+
+import (
+	"net"
+	"testing"
+	"time"
+
+	"github.com/NguyenHien-8/tcq-network-protocol/internal/protocol"
+
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+)
+
+func TestBasicConn(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+
+	c := NewMockPacketConn(mockCtrl)
+	addr := &net.UDPAddr{IP: net.IPv4(1, 2, 3, 4), Port: 1234}
+	c.EXPECT().ReadFrom(gomock.Any()).DoAndReturn(func(b []byte) (int, net.Addr, error) {
+		data := []byte("foobar")
+		require.Equal(t, protocol.MaxPacketBufferSize, len(b))
+		return copy(b, data), addr, nil
+	})
+
+	conn, err := wrapConn(c)
+	require.NoError(t, err)
+	p, err := conn.ReadPacket()
+	require.NoError(t, err)
+	require.Equal(t, []byte("foobar"), p.data)
+	require.WithinDuration(t, time.Now(), p.rcvTime.ToTime(), scaleDuration(100*time.Millisecond))
+	require.Equal(t, addr, p.remoteAddr)
+}

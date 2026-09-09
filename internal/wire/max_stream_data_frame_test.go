@@ -1,0 +1,54 @@
+//	Project: TCQ Network Protocol (Thread Controlled QUIC)
+//	Author: Trần Nguyên Hiền (c)
+//	Major: Electronic And Communication Engineering
+//	Email: trannguyenhien29085@gmail.com
+//	Date: 2/3/2026
+//	Apache License 2.0
+//
+// ----------------------------------------------------------------
+package wire
+
+import (
+	"io"
+	"testing"
+
+	"github.com/NguyenHien-8/tcq-network-protocol/internal/protocol"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestParseMaxStreamFrame(t *testing.T) {
+	data := encodeVarInt(0xdeadbeef)                 // Stream ID
+	data = append(data, encodeVarInt(0x12345678)...) // Offset
+	frame, l, err := parseMaxStreamDataFrame(data, protocol.Version1)
+	require.NoError(t, err)
+	require.Equal(t, protocol.StreamID(0xdeadbeef), frame.StreamID)
+	require.Equal(t, protocol.ByteCount(0x12345678), frame.MaximumStreamData)
+	require.Equal(t, len(data), l)
+}
+
+func TestParseMaxStreamDataErrorsOnEOFs(t *testing.T) {
+	data := encodeVarInt(0xdeadbeef)                 // Stream ID
+	data = append(data, encodeVarInt(0x12345678)...) // Offset
+	_, l, err := parseMaxStreamDataFrame(data, protocol.Version1)
+	require.NoError(t, err)
+	require.Equal(t, len(data), l)
+	for i := range data {
+		_, _, err := parseMaxStreamDataFrame(data[:i], protocol.Version1)
+		require.Equal(t, io.EOF, err)
+	}
+}
+
+func TestWriteMaxStreamDataFrame(t *testing.T) {
+	f := &MaxStreamDataFrame{
+		StreamID:          0xdecafbad,
+		MaximumStreamData: 0xdeadbeefcafe42,
+	}
+	expected := []byte{byte(FrameTypeMaxStreamData)}
+	expected = append(expected, encodeVarInt(0xdecafbad)...)
+	expected = append(expected, encodeVarInt(0xdeadbeefcafe42)...)
+	b, err := f.Append(nil, protocol.Version1)
+	require.NoError(t, err)
+	require.Equal(t, expected, b)
+	require.Equal(t, len(b), int(f.Length(protocol.Version1)))
+}

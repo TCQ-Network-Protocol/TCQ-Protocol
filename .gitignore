@@ -1,0 +1,31 @@
+debug
+debug.test
+main
+mockgen_tmp.go
+*.qtr
+*.qlog
+*.sqlog
+*.txt
+race.[0-9]*
+
+# for example/filetransfer
+tcq-file-client.exe
+tcq-file-server
+
+# -------------------- #
+.codex-gocache/
+Document/
+release-v0.1.0/
+tcq-storage/
+
+ver-0.0/
+fuzzing/*/*.zip
+fuzzing/*/coverprofile
+fuzzing/*/crashers
+fuzzing/*/sonarprofile
+fuzzing/*/suppressions
+fuzzing/*/corpus/
+
+testdata/fuzz/
+
+gomock_reflect_*/

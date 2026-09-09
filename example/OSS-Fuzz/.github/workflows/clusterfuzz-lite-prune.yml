@@ -1,0 +1,31 @@
+name: ClusterFuzzLite pruning
+on:
+  schedule:
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  Pruning:
+    # Re-enable by setting this to true (or removing this line).
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+    - name: Build Fuzzers
+      id: build
+      uses: google/clusterfuzzlite/actions/build_fuzzers@v1
+      with:
+        language: go
+    - name: Run Fuzzers
+      id: run
+      uses: google/clusterfuzzlite/actions/run_fuzzers@v1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        fuzz-seconds: 600
+        mode: 'prune'
+        output-sarif: true
+        storage-repo: https://${{ secrets.CLUSTERFUZZ_LITE_STORAGE }}@github.com/NguyenHien-8/clusterfuzzlite-storage.git
+        storage-repo-branch: master
+        storage-repo-branch-coverage: gh-pages
