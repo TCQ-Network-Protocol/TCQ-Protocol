@@ -10,6 +10,7 @@ package http3
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -261,4 +262,21 @@ func TestResponseWriterTrailers(t *testing.T) {
 	require.NotContains(t, trailers, "foo")
 	// invalid trailers are ignored
 	require.NotContains(t, trailers, "content-length")
+}
+
+func TestResponseWriterTrailersWithoutLogger(t *testing.T) {
+	t.Run("invalid trailer", func(t *testing.T) {
+		w := newResponseWriter(nil, nil, false, nil)
+		require.NotPanics(t, func() { w.declareTrailer("Content-Length") })
+		require.Empty(t, w.trailers)
+	})
+	t.Run("trailer write error", func(t *testing.T) {
+		str := NewMockDatagramStream(gomock.NewController(t))
+		str.EXPECT().StreamID().Return(quic.StreamID(0)).AnyTimes()
+		str.EXPECT().Write(gomock.Any()).Return(0, errors.New("stream reset"))
+		w := newResponseWriter(newStream(str, nil, nil, nil, nil), nil, false, nil)
+		w.declareTrailer("Checksum")
+		w.Header().Set("Checksum", "value")
+		require.NotPanics(t, w.flushTrailers)
+	})
 }

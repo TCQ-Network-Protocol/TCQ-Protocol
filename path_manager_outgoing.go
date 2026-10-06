@@ -161,6 +161,7 @@ func (pm *pathManagerOutgoing) addPath(p *Path, enablePath func()) *pathOutgoing
 	// path might already exist, and just being re-probed
 	if existingPath, ok := pm.paths[p.id]; ok {
 		existingPath.validated = make(chan struct{})
+		existingPath.isValidated = false
 		return existingPath
 	}
 

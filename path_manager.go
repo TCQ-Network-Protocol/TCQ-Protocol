@@ -101,7 +101,7 @@ func (pm *pathManager) HandlePacket(
 		}
 	}
 
-	if len(pm.paths) >= maxPaths {
+	if p == nil && len(pm.paths) >= maxPaths {
 		if pm.paths[0].lastPacketTime.Add(pathTimeout).After(t) {
 			if pm.logger.Debug() {
 				pm.logger.Debugf("received packet for previously unseen path %s, but already have %d paths", remoteAddr, len(pm.paths))

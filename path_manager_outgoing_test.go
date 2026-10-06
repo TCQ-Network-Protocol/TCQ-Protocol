@@ -116,6 +116,47 @@ func TestPathManagerOutgoingPathProbing(t *testing.T) {
 	})
 }
 
+func TestPathManagerOutgoingReprobeValidatedPath(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		pm := newPathManagerOutgoing(
+			func(pathID) (protocol.ConnectionID, bool) {
+				return protocol.ParseConnectionID([]byte{1, 2, 3, 4}), true
+			},
+			func(pathID) { t.Error("didn't expect any connection ID to be retired") },
+			func() {},
+		)
+		p := pm.NewPath(&Transport{}, time.Second, func() {})
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		for attempt := range 2 {
+			errChan := make(chan error, 1)
+			go func() { errChan <- p.Probe(ctx) }()
+			synctest.Wait()
+
+			_, frame, _, ok := pm.NextPathToProbe()
+			require.True(t, ok)
+			select {
+			case err := <-errChan:
+				t.Fatalf("probe %d completed before receiving its response: %v", attempt+1, err)
+			default:
+			}
+
+			response := &wire.PathResponseFrame{Data: frame.Frame.(*wire.PathChallengeFrame).Data}
+			pm.HandlePathResponseFrame(response)
+			pm.HandlePathResponseFrame(response) // duplicate responses must be harmless
+			synctest.Wait()
+
+			select {
+			case err := <-errChan:
+				require.NoError(t, err)
+			default:
+				t.Fatalf("probe %d did not complete after receiving its response", attempt+1)
+			}
+		}
+	})
+}
+
 func TestPathManagerOutgoingRetransmissions(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		connIDs := []protocol.ConnectionID{

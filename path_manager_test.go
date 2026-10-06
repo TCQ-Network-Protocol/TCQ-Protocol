@@ -214,6 +214,43 @@ func TestPathManagerNATRebinding(t *testing.T) {
 	require.True(t, shouldSwitch)
 }
 
+func TestPathManagerRespondsToExistingPathAtCapacity(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		delay time.Duration
+	}{
+		{name: "recent paths", delay: time.Second},
+		{name: "expired paths", delay: pathTimeout},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var retiredPaths []pathID
+			pm := newPathManager(
+				func(id pathID) (protocol.ConnectionID, bool) {
+					return protocol.ParseConnectionID([]byte{byte(id + 1)}), true
+				},
+				func(id pathID) { retiredPaths = append(retiredPaths, id) },
+				utils.DefaultLogger,
+			)
+			now := monotime.Now()
+			for i := range maxPaths {
+				_, frames, _ := pm.HandlePacket(&net.UDPAddr{IP: net.IPv4(1, 2, 3, 4), Port: 1000 + i}, now, nil, false)
+				require.Len(t, frames, 1)
+			}
+
+			challenge := &wire.PathChallengeFrame{Data: [8]byte{1, 2, 3, 4, 5, 6, 7, 8}}
+			connID, frames, shouldSwitch := pm.HandlePacket(
+				&net.UDPAddr{IP: net.IPv4(1, 2, 3, 4), Port: 1001},
+				now.Add(tc.delay), challenge, false,
+			)
+			require.Empty(t, retiredPaths, "responding on an existing path must not evict another path")
+			require.Len(t, frames, 1)
+			require.Equal(t, &wire.PathResponseFrame{Data: challenge.Data}, frames[0].Frame)
+			require.Equal(t, protocol.ParseConnectionID([]byte{2}), connID)
+			require.False(t, shouldSwitch)
+		})
+	}
+}
+
 func TestPathManagerLimits(t *testing.T) {
 	var connIDs []protocol.ConnectionID
 	for range 2*maxPaths + 2 {

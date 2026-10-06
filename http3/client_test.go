@@ -394,6 +394,28 @@ func testClientExtendedConnect(t *testing.T, enabled bool) {
 	}
 }
 
+func TestClientExtendedConnectCancellationBeforeSettings(t *testing.T) {
+	clientConn, _ := newConnPair(t)
+	cc := (&Transport{}).NewClientConn(clientConn)
+	<-clientConn.HandshakeComplete()
+	ctx, cancel := context.WithTimeout(context.Background(), scaleDuration(100*time.Millisecond))
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodConnect, "https://localhost/", nil)
+	require.NoError(t, err)
+	req.Proto = "webtransport"
+	result := make(chan error, 1)
+	go func() {
+		_, err := cc.RoundTrip(req)
+		result <- err
+	}()
+	select {
+	case err := <-result:
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+	case <-time.After(scaleDuration(time.Second)):
+		t.Fatal("request deadline did not interrupt wait for peer SETTINGS")
+	}
+}
+
 func TestClient1xxHandling(t *testing.T) {
 	t.Run("a few early hints", func(t *testing.T) {
 		testClient1xxHandling(t, max1xxResponses, http.StatusOK, false)

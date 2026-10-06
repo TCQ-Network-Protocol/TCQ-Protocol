@@ -309,6 +309,8 @@ func (c *ClientConn) roundTrip(req *http.Request) (*http.Response, error) {
 		// wait for the server's SETTINGS frame to arrive
 		select {
 		case <-c.rawConn.ReceivedSettings():
+		case <-req.Context().Done():
+			return nil, req.Context().Err()
 		case <-connCtx.Done():
 			return nil, context.Cause(connCtx)
 		}
