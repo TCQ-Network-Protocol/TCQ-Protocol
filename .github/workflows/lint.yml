@@ -24,7 +24,7 @@ jobs:
         run: go mod tidy -diff
       - name: Run code generators
         if: success() || failure() # run this step even if the previous one failed
-        run: .github/workflows/go-generate.sh
+        run: bash .github/workflows/go-generate.sh
       - name: Check that go mod vendor works
         if: success() || failure() # run this step even if the previous one failed
         run: |
